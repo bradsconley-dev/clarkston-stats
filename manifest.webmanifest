@@ -1,6 +1,6 @@
 {
   "name": "Clarkston Basketball Stats",
-  "short_name": "Wolves Stats",
+  "short_name": "Clarkston Basketball",
   "description": "Clarkston Wolves basketball stat tracker (works offline).",
   "start_url": "./",
   "scope": "./",
