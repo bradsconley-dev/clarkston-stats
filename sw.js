@@ -1,7 +1,7 @@
 // Clarkston Basketball Stats - offline service worker. Cache name is tied to the app build string (+ content hash).
 // Safe update flow: a new version installs in the background and WAITS (no skipWaiting, no clients.claim, no reload),
 // so a game in progress is never interrupted; it takes over the next time the app is fully closed and launched again.
-const CACHE='wolves-stats-v2.2.15-2026-11-05-splash-dust-heavy-7f9e44e0';
+const CACHE='wolves-stats-v2.2.16-2026-11-05-splash-float-8689a91e';
 const ASSETS=['./','index.html','manifest.webmanifest','icons/icon-192.png','icons/icon-512.png','icons/icon-maskable-512.png','icons/apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS.map(u=>new Request(u,{cache:'reload'})))))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k.startsWith('wolves-stats-')&&k!==CACHE).map(k=>caches.delete(k)))))});
