@@ -766,7 +766,7 @@ const STATS=[['2PT Make','fg2m','g'],['2PT Miss','fg2x','r'],['3PT Make','fg3m',
 const load=(k,d)=>{try{return JSON.parse(LS.getItem(k))??d}catch(e){return d}};
 const BOOL_SET=['askAst','askZone','req5','ftStop','foulPause','askReb'];
 function normSettings(o){o=o&&typeof o==='object'&&!Array.isArray(o)?o:{};if(!(o.qLen>0))o.qLen=480;if(!(o.otLen>0))o.otLen=240;BOOL_SET.forEach(k=>{const v=o[k];o[k]=!(v===false||v==='false'||v===0||v==='0'||v==='off')});return o}
-const APP_VERSION='v2.2.24',APP_BUILD=APP_VERSION+' · 2026-11-09 · schedule';
+const APP_VERSION='v2.2.25',APP_BUILD=APP_VERSION+' · 2026-11-10 · shot-colors';
 // ---- v2.2 teams: Varsity / JV / Freshman. Each team has its own storage slot: bb_roster_<id>, bb_game_<id>, bb_past_<id>, bb_settings_<id>, bb_keeper_<id>;
 // bb_team = last selected team. Migration (once, idempotent): the old unsuffixed v2.1 keys are COPIED to the Varsity slot and verified; the old keys are left untouched as a backup and never written again.
 const TEAMS=[['varsity','Varsity'],['jv','JV'],['freshman','Freshman']],TEAM_IDS=TEAMS.map(t=>t[0]),TEAM_KEYS=['bb_roster','bb_game','bb_past','bb_settings','bb_keeper'],TEAM_SEL='bb_team',TEAM_MIG='bb_teams_migrated';
@@ -1042,6 +1042,7 @@ function p2Place(labels,located){const dots=located.map(s=>s.spot),placed=[],O=[
   l.x=+best.x.toFixed(2);l.y=+best.y.toFixed(2);l.covers=p2Cover(l,l.x,l.y,dots);placed.push({x:l.x,y:l.y,b})})}
 function p2Title(M){return`Clarkston team shot chart${M.half?' (1st half)':''} — ${M.fgm}-${M.fga} FG, ${M.tpm}-${M.tpa} 3PT`}
 // court + markers + labels as primitives in FEET (shared by the PDF and the HTML report)
+var P2_MK={make:{fill:[10,31,68],c:[255,199,44],lw:1.8},miss:{fill:[255,255,255],c:[10,31,68],lw:1.8}}; // theme navy #0a1f44 + gold #ffc72c; gold outline uses the same 1.8 pt weight as miss so it stays visible
 function p2Prims(M){const B=-5.25,H=41.75,R=19.75,P=[],arc=(cx,cy,r,a1,a2,n=48)=>Array.from({length:n+1},(_,i)=>{const a=(a1+(a2-a1)*i/n)*Math.PI/180;return[cx+r*Math.cos(a),cy+r*Math.sin(a)]});
  const ln=(pts,lw=1.6,o={})=>P.push(Object.assign({k:'line',pts,lw,c:SBC.blue},o));
  P.push({k:'fill',pts:[[-25,B],[25,B],[25,H],[-25,H]],c:SBC.floor,op:.7});
@@ -1059,12 +1060,12 @@ function p2Prims(M){const B=-5.25,H=41.75,R=19.75,P=[],arc=(cx,cy,r,a1,a2,n=48)=
  ln([[-3,-1.25],[3,-1.25]],3.2);ln([[0,-1.25],[0,-.75]]);ln(arc(0,0,.75,0,360,24),1.6*1.4,{c:SBC.goldD,closed:1});
  ln(arc(0,H,6,180,360));ln(arc(0,H,2,180,360));
  const mk=M.located.filter(s=>!s.m).concat(M.located.filter(s=>s.m));
- mk.forEach(s=>P.push(s.m?{k:'dot',x:s.spot.x,y:s.spot.y,r:4.75,fill:SBC.ink,c:SBC.ink,lw:.6,type:`fg${s.v}m`}:{k:'dot',x:s.spot.x,y:s.spot.y,r:4.75,fill:[255,255,255],c:SBC.ink,lw:1.8,type:`fg${s.v}x`}));
+ mk.forEach(s=>P.push(Object.assign({k:'dot',x:s.spot.x,y:s.spot.y,r:4.75,type:`fg${s.v}${s.m?'m':'x'}`},s.m?P2_MK.make:P2_MK.miss)));
  M.labels.forEach(l=>P.push(Object.assign({k:'label'},l)));return P}
 // zone shading: tier color + opacity over the cream floor (hot green, warm gold, cold blue, grey washed = no attempts)
 var P2_ZFILL={hot:{c:[34,160,80],op:.30},warm:{c:[250,200,20],op:.36},cold:{c:[60,110,200],op:.24},none:{c:[200,204,212],op:.30}},P2_ZLINE=[112,124,146];
 function p2Swatch(t){const Z=P2_ZFILL[t];return Z.c.map((v,i)=>Math.round(v*Z.op+[255,253,245][i]*(1-Z.op)))}
-var P2_LEG=[['Make',{fill:SBC.ink,c:SBC.ink,lw:.6}],['Miss',{fill:[255,255,255],c:SBC.ink,lw:1.8}]];
+var P2_LEG=[['Make',P2_MK.make],['Miss',P2_MK.miss]];
 // v2.2.10: pages 2/3 (and player shot charts) header logos match page 1: Brad's block C straight on the navy (no white badge) on the left,
 // the Clarkston wolf logo on the right (page-1 proportions scaled to the 61.9 pt band). TEST DATA badge sits just left of the wolf.
 function pdfBandLogos(doc,test,sub){
