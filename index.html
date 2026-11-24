@@ -894,7 +894,7 @@ const STATS=[['2PT Make','fg2m','g'],['2PT Miss','fg2x','r'],['3PT Make','fg3m',
 const load=(k,d)=>{try{return JSON.parse(LS.getItem(k))??d}catch(e){return d}};
 const BOOL_SET=['askAst','askZone','req5','ftStop','foulPause','askReb'];
 function normSettings(o){o=o&&typeof o==='object'&&!Array.isArray(o)?o:{};if(!(o.qLen>0))o.qLen=480;if(!(o.otLen>0))o.otLen=240;BOOL_SET.forEach(k=>{const v=o[k];o[k]=!(v===false||v==='false'||v===0||v==='0'||v==='off')});return o}
-const APP_VERSION='v2.2.30',APP_BUILD=APP_VERSION+' · 2026-11-18 · out-label';
+const APP_VERSION='v2.2.31',APP_BUILD=APP_VERSION+' · 2026-11-23 · scrim-q';
 // ---- v2.2 teams: Varsity / JV / Freshman. Each team has its own storage slot: bb_roster_<id>, bb_game_<id>, bb_past_<id>, bb_settings_<id>, bb_keeper_<id>;
 // bb_team = last selected team. Migration (once, idempotent): the old unsuffixed v2.1 keys are COPIED to the Varsity slot and verified; the old keys are left untouched as a backup and never written again.
 const TEAMS=[['varsity','Varsity'],['jv','JV'],['freshman','Freshman']],TEAM_IDS=TEAMS.map(t=>t[0]),TEAM_KEYS=['bb_roster','bb_game','bb_past','bb_settings','bb_keeper'],TEAM_SEL='bb_team',TEAM_MIG='bb_teams_migrated';
@@ -936,7 +936,7 @@ function startNewGame(ok){if(ok!==true&&$('scrimGame')&&$('scrimGame').checked&&
 /* v2.2.28 scrimmage format: g.fmt={periods,len(min)}; no fmt = 4 quarters + settings.qLen (unchanged). FMT_CTX = game a report/export is working on. */
 var FMT_CTX=null;
 function fmtG(){return FMT_CTX||game}
-function fmtOk(f){return!!(f&&typeof f==='object'&&+f.periods>=1&&+f.periods<=8&&+f.len>0)}
+function fmtOk(f){return!!(f&&typeof f==='object'&&+f.periods>=1&&+f.periods<=12&&+f.len>0)}
 function RQ(g){if(g===undefined)g=fmtG();return g&&fmtOk(g.fmt)?Math.round(+g.fmt.periods):4}
 function HN(g){return Math.ceil(RQ(g)/2)}
 function hLbl(g){const n=HN(g);return n===1?'Q1':'Q1-Q'+n}
@@ -965,6 +965,7 @@ function stopIfShort(){if(!game||!game.running||!need5())return false;const n=on
 function setRun(r){if(!r)closeToPrompt();if(!r&&game&&game.running&&!setRun._t){setRun._t=1;try{tick()}catch(e){console.error(e)}finally{setRun._t=0}if(!game.running)return} // credit time since the last 100 ms tick before stopping
  if(r&&game.remain<=0){msg('Clock is at 0:00 — pick the next period');r=false}if(r&&need5()&&onCourtN()!==5){const n=onCourtN();alertMsg(`⛔ Need 5 on court to start the clock (${n} of 5) — tap Subs`);r=false;if(!game.running){render();return}}if(r){try{if(typeof closeTmoPick==='function')closeTmoPick()}catch(e){}try{if(typeof msSeq!=='undefined'&&msSeq&&typeof msClose==='function')msClose()}catch(e){}}game.running=r;if(r&&game.period===1&&Array.isArray(game.subLog)&&!game.starters)game.starters=game.players.filter(p=>p.court).map(p=>p.id);clearInterval(timer);if(r){last=Date.now();timer=setInterval(tick,100)}save();render()}
 function endPeriod(){closeToPrompt();if(msSeq)msDone(); /* subs picked before the buzzer count at 0:00 */const n=game.period,nx=n+1;render();periodAsk(game,n,()=>{if(!game)return render();
+ if(canAddQ(game)&&n===RQ(game)){const nq=n+1,go2=k=>{if(!game||game.period!==n)return;if(!yesNo(`End of ${ordQ(n)}. Add Q${nq}?`,{sub:`Scrimmage: Yes adds a regular Q${nq} (${fmtClock(perLen(n))}). No stays here — then tap End & Save Game (or use + OT in Tools).`},()=>{if(game)addQuarter(true);else render()},()=>render())&&k<40)setTimeout(()=>go2(k+1),400)};go2(0);return}
  if(n>=RQ(game)){const them=oppCum(game)[n],us=usThrough(game,n); // 2026-10-22: overtime only when tied; unknown opponent score -> still ask
   if(them!=null&&them!==us){render();alertMsg(`End of ${n===RQ(game)?'regulation':pLbl(n)} — final: Clarkston ${us}, ${game.opp} ${them}. Tap End & Save Game.`);return}}
  const q=n>=RQ(game)?`End of ${ordQ(n)}. Go to overtime?`:`End of ${ordQ(n)}. Go to the ${ordQ(nx)}?`,o={sub:n>=RQ(game)?(oppCum(game)[n]!=null?`Tied ${usThrough(game,n)}–${oppCum(game)[n]}. `:'')+`Yes starts ${pLbl(nx)} (${fmtClock(perLen(nx))}). No stays at the end of ${pLbl(n)} — then tap End & Save Game.`:`Yes starts ${pLbl(nx)} (${fmtClock(perLen(nx))}).`};
@@ -981,8 +982,15 @@ document.querySelectorAll('[data-adj]').forEach(b=>b.onclick=()=>adjClock(+b.dat
 $('htBtn').onclick=()=>{if(game)showHalftime(game)};
 $('setClock').onclick=()=>{const v=prompt('Set clock to (M:SS, e.g. 5:32 or 0:45.5)',fmtClock(game.remain));if(v==null)return;const t=parseMS(v);if(t==null){alert('Use M:SS format');return}clockTo(t)};
 function renderPerBtns(){const maxOT=Math.max(game.period,RQ(game));let h='';for(let n=1;n<=maxOT;n++)h+=`<button data-per="${n}" class="${n===game.period?'on':''}">${pLbl(n)}</button>`;
+ if(canAddQ(game))h+=`<button data-addq="1" class="y">+ Q${RQ(game)+1}</button>`;
  h+=`<button data-per="${maxOT+1}" class="y">+ ${pLbl(maxOT+1)}</button>`;$('perBtns').innerHTML=h;
- $('perBtns').querySelectorAll('button').forEach(b=>b.onclick=()=>{const n=+b.dataset.per;if(n!==game.period)goPeriod(n)})}
+ $('perBtns').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.addq){addQuarter(false);return}const n=+b.dataset.per;if(n!==game.period)goPeriod(n)})}
+/* v2.2.31 scrimmage only: add a regular quarter (Q5, Q6, ...) after the last quarter. g.fmt.periods grows; same length as the other quarters. */
+function canAddQ(g){return!!g&&isScrim(g)&&g.period===RQ(g)&&RQ(g)<12}
+function addQuarter(noAsk){if(!game||!canAddQ(game))return;const r=RQ(game),len=fmtOk(game.fmt)?+game.fmt.len:Math.round(settings.qLen/6)/10;
+ const doIt=()=>{if(!game||!canAddQ(game))return;game.fmt={periods:r+1,len};goPeriod(r+1,true,noAsk)};
+ if(!noAsk&&game.remain>0&&game.remain<perLen(r)){yesNo(`${pLbl(r)} is in progress (${fmtClock(game.remain)}). Add Q${r+1} and start it now?`,{danger:1,sub:`Yes adds Q${r+1} (${fmtClock(len*60)}) and resets the clock.`},doIt);return}doIt()}
+
 $('buildTag').textContent='Build: '+APP_BUILD;$('setQ').value=fmtClock(settings.qLen);$('setOT').value=fmtClock(settings.otLen);$('setAst').checked=settings.askAst!==false;$('setReb').checked=settings.askReb!==false;$('setFtSubs').checked=settings.askFtSubs!==false;$('setToSubs').checked=settings.askToSubs!==false;$('setQLineup').checked=settings.askQLineup!==false;$('setOppAst').checked=settings.askOppAst!==false;$('setZone').checked=settings.askZone!==false;$('setReq5').checked=settings.req5!==false;$('setFtStop').checked=settings.ftStop!==false;$('setFl1').value=foulT().h1;$('setFl2').value=foulT().h2;$('setFout').value=foulT().out;$('setEmail').value=repEmail();$('setFoulPause').checked=settings.foulPause!==false;
 $('saveSet').onclick=()=>{const q=parseMS($('setQ').value),o=parseMS($('setOT').value);if(!q||!o){alert('Use M:SS, e.g. 8:00');return}
  settings.qLen=q;settings.otLen=o;settings.askAst=$('setAst').checked;settings.askReb=$('setReb').checked;settings.askFtSubs=$('setFtSubs').checked;settings.askToSubs=$('setToSubs').checked;settings.askQLineup=$('setQLineup').checked;settings.askOppAst=$('setOppAst').checked;settings.askZone=$('setZone').checked;settings.req5=$('setReq5').checked;settings.ftStop=$('setFtStop').checked;{const a=Math.round(+$('setFl1').value),b=Math.round(+$('setFl2').value),c=Math.round(+$('setFout').value);if(c>=1&&a>=1&&b>=1&&a<c&&b<c){settings.fl1=a;settings.fl2=b;settings.fout=c}else alert('Foul thresholds must be at least 1 and below the foul-out number; kept previous values.')}settings.email=$('setEmail').value.trim()||DEF_EMAIL;settings.foulPause=$('setFoulPause').checked;if(game&&!game.running&&game.remain===0)game.remain=perLen(game.period);save();alert('Settings saved.');render()};
@@ -2698,7 +2706,7 @@ function yesNo(q,o,onYes,onNo){if(yn)return false;o=o||{};yn={onYes,onNo};$('ynQ
 function ynAnswer(v){if(!yn)return;const a=yn;yn=null;$('ynModal').classList.add('hide');const f=v?a.onYes:a.onNo;if(f)f()}
 $('ynYes').onclick=e=>{e.stopPropagation();ynAnswer(true)};$('ynNo').onclick=e=>{e.stopPropagation();ynAnswer(false)};
 document.addEventListener('keydown',e=>{if(yn&&e.key==='Escape'){e.preventDefault();ynAnswer(false)}});
-const ordQ=n=>n<=RQ()?['1st','2nd','3rd','4th','5th','6th','7th','8th'][n-1]+' quarter':pLbl(n);
+const ordQ=n=>n<=RQ()?['1st','2nd','3rd','4th','5th','6th','7th','8th','9th','10th','11th','12th'][n-1]+' quarter':pLbl(n);
 function migrate(){if(game&&!game.tmo)game.tmo=Object.assign({},TMO_NFHS); // games saved before timeout tracking: NFHS defaults
  [game,...past].forEach(g=>{if(g){g.log=g.log||[];g.log.forEach(e=>{if(!e.eid)e.eid=newEid()})}});if(game&&game.remain==null){game.period=game.period||1;game.remain=perLen(game.period);delete game.clock}}
 // ---- v2.2 team picker (top of the app). Switching saves this team, remembers the choice (bb_team) and reloads the page into the other team's slot, so nothing in memory can mix.
